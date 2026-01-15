@@ -1,0 +1,130 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Materiales - Control de Materiales{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-box"></i> Materiales</h2>
+    <a href="/admin/inventario/material/add/" class="btn btn-success">
+        <i class="bi bi-plus-circle"></i> Nuevo Material
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Buscar</label>
+                <input type="text" name="search" class="form-control" 
+                       placeholder="Código, nombre o descripción..." 
+                       value="{{ search }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Proveedor</label>
+                <select name="proveedor" class="form-select">
+                    <option value="">Todos</option>
+                    {% for prov in proveedores %}
+                        <option value="{{ prov.id }}" {% if proveedor_id|stringformat:"s" == prov.id|stringformat:"s" %}selected{% endif %}>
+                            {{ prov.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Filtro</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="bajo_stock" 
+                           id="bajo_stock" value="1" {% if solo_bajo_stock %}checked{% endif %}>
+                    <label class="form-check-label" for="bajo_stock">
+                        Solo stock bajo
+                    </label>
+                </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de materiales -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Material</th>
+                        <th>Stock Actual</th>
+                        <th>Stock Mínimo</th>
+                        <th>Unidad</th>
+                        <th>Precio Unit.</th>
+                        <th>Valor Total</th>
+                        <th>Proveedor</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for material in materiales %}
+                    <tr>
+                        <td><code>{{ material.codigo }}</code></td>
+                        <td>
+                            <strong>{{ material.nombre }}</strong><br>
+                            <small class="text-muted">{{ material.descripcion|truncatewords:8 }}</small>
+                        </td>
+                        <td>
+                            {% if material.esta_bajo_stock %}
+                                <span class="badge badge-stock-bajo">
+                                    {{ material.stock_actual }}
+                                </span>
+                            {% else %}
+                                <span class="badge badge-stock-ok">
+                                    {{ material.stock_actual }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ material.stock_minimo }}</td>
+                        <td>{{ material.get_unidad_medida_display }}</td>
+                        <td>${{ material.precio_unitario }}</td>
+                        <td>${{ material.valor_inventario|floatformat:2 }}</td>
+                        <td>{{ material.proveedor.nombre }}</td>
+                        <td>
+                            {% if material.esta_bajo_stock %}
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-exclamation-triangle"></i> Bajo
+                                </span>
+                            {% else %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle"></i> OK
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'detalle_material' material.id %}" 
+                               class="btn btn-sm btn-outline-primary btn-action">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="/admin/inventario/material/{{ material.id }}/change/" 
+                               class="btn btn-sm btn-outline-secondary btn-action">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted">
+                            No se encontraron materiales
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

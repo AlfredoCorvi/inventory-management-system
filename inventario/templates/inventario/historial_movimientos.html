@@ -1,0 +1,143 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Historial de Movimientos - Control de Materiales{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-clock-history"></i> Historial de Movimientos</h2>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-funnel"></i> Filtros
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Tipo de Movimiento</label>
+                <select name="tipo" class="form-select">
+                    <option value="">Todos</option>
+                    <option value="ENTRADA" {% if tipo == 'ENTRADA' %}selected{% endif %}>
+                        Entradas
+                    </option>
+                    <option value="SALIDA" {% if tipo == 'SALIDA' %}selected{% endif %}>
+                        Salidas
+                    </option>
+                </select>
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label">Material</label>
+                <select name="material" class="form-select">
+                    <option value="">Todos</option>
+                    {% for mat in materiales %}
+                        <option value="{{ mat.id }}" 
+                                {% if material_id|stringformat:"s" == mat.id|stringformat:"s" %}selected{% endif %}>
+                            {{ mat.codigo }} - {{ mat.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">Fecha Desde</label>
+                <input type="date" name="fecha_desde" class="form-control" 
+                       value="{{ fecha_desde }}">
+            </div>
+            
+            <div class="col-md-2">
+                <label class="form-label">Fecha Hasta</label>
+                <input type="date" name="fecha_hasta" class="form-control" 
+                       value="{{ fecha_hasta }}">
+            </div>
+            
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de movimientos -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha y Hora</th>
+                        <th>Tipo</th>
+                        <th>Material</th>
+                        <th>Cantidad</th>
+                        <th>Stock Resultante</th>
+                        <th>Valor</th>
+                        <th>Usuario</th>
+                        <th>Referencia</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mov in movimientos %}
+                    <tr>
+                        <td><small>#{{ mov.id }}</small></td>
+                        <td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>
+                            {% if mov.tipo == 'ENTRADA' %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-arrow-down"></i> Entrada
+                                </span>
+                            {% else %}
+                                <span class="badge bg-primary">
+                                    <i class="bi bi-arrow-up"></i> Salida
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'detalle_material' mov.material.id %}">
+                                <strong>{{ mov.material.codigo }}</strong><br>
+                                <small>{{ mov.material.nombre }}</small>
+                            </a>
+                        </td>
+                        <td>
+                            <strong>{{ mov.cantidad }}</strong> {{ mov.material.unidad_medida }}
+                        </td>
+                        <td>
+                            {{ mov.stock_resultante }} {{ mov.material.unidad_medida }}
+                        </td>
+                        <td>${{ mov.valor_total|floatformat:2 }}</td>
+                        <td>
+                            <i class="bi bi-person"></i> {{ mov.usuario.username }}
+                        </td>
+                        <td><code>{{ mov.referencia }}</code></td>
+                        <td>
+                            {% if mov.observaciones %}
+                                <small>{{ mov.observaciones|truncatewords:10 }}</small>
+                            {% else %}
+                                <small class="text-muted">-</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted">
+                            No se encontraron movimientos con los filtros seleccionados
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if movimientos %}
+        <div class="alert alert-info mt-3">
+            <i class="bi bi-info-circle"></i>
+            Mostrando los últimos 100 movimientos. Use los filtros para búsquedas más específicas.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

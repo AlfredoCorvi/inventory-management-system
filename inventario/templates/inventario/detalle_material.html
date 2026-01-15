@@ -1,0 +1,168 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}{{ material.nombre }} - Control de Materiales{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'lista_materiales' %}" class="btn btn-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Volver a Materiales
+    </a>
+</div>
+
+<div class="row">
+    <!-- Información del material -->
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-box"></i> {{ material.nombre }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Código:</strong> <code>{{ material.codigo }}</code></p>
+                        <p><strong>Descripción:</strong> {{ material.descripcion }}</p>
+                        <p><strong>Unidad de Medida:</strong> {{ material.get_unidad_medida_display }}</p>
+                        <p><strong>Proveedor:</strong> {{ material.proveedor.nombre }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Stock Actual:</strong> 
+                            {% if material.esta_bajo_stock %}
+                                <span class="badge badge-stock-bajo">
+                                    {{ material.stock_actual }} {{ material.unidad_medida }}
+                                </span>
+                            {% else %}
+                                <span class="badge badge-stock-ok">
+                                    {{ material.stock_actual }} {{ material.unidad_medida }}
+                                </span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Stock Mínimo:</strong> {{ material.stock_minimo }} {{ material.unidad_medida }}</p>
+                        <p><strong>Precio Unitario:</strong> ${{ material.precio_unitario }}</p>
+                        <p><strong>Valor en Inventario:</strong> 
+                            <span class="text-success">${{ material.valor_inventario|floatformat:2 }}</span>
+                        </p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="d-flex gap-2">
+                    <a href="{% url 'registrar_entrada' %}" class="btn btn-success">
+                        <i class="bi bi-arrow-down-circle"></i> Registrar Entrada
+                    </a>
+                    <a href="{% url 'registrar_salida' %}" class="btn btn-primary">
+                        <i class="bi bi-arrow-up-circle"></i> Registrar Salida
+                    </a>
+                    <a href="/admin/inventario/material/{{ material.id }}/change/" 
+                       class="btn btn-secondary">
+                        <i class="bi bi-pencil"></i> Editar
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historial del material -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-clock-history"></i> Historial de Movimientos
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Cantidad</th>
+                                <th>Stock Resultante</th>
+                                <th>Usuario</th>
+                                <th>Referencia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mov in movimientos %}
+                            <tr>
+                                <td>{{ mov.fecha|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if mov.tipo == 'ENTRADA' %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-arrow-down"></i> Entrada
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-primary">
+                                            <i class="bi bi-arrow-up"></i> Salida
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td><strong>{{ mov.cantidad }}</strong> {{ material.unidad_medida }}</td>
+                                <td>{{ mov.stock_resultante }} {{ material.unidad_medida }}</td>
+                                <td>{{ mov.usuario.username }}</td>
+                                <td><code>{{ mov.referencia }}</code></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">
+                                    No hay movimientos registrados para este material
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas del material -->
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-arrow-down-circle"></i> Total Entradas
+            </div>
+            <div class="card-body text-center">
+                <h2 class="text-success">{{ total_entradas }}</h2>
+                <p class="mb-0">{{ material.unidad_medida }}</p>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-arrow-up-circle"></i> Total Salidas
+            </div>
+            <div class="card-body text-center">
+                <h2 class="text-primary">{{ total_salidas }}</h2>
+                <p class="mb-0">{{ material.unidad_medida }}</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Información
+            </div>
+            <div class="card-body">
+                <p><small><strong>Fecha de registro:</strong><br>
+                {{ material.fecha_registro|date:"d/m/Y H:i" }}</small></p>
+                
+                <p><small><strong>Estado:</strong><br>
+                {% if material.activo %}
+                    <span class="badge bg-success">Activo</span>
+                {% else %}
+                    <span class="badge bg-secondary">Inactivo</span>
+                {% endif %}
+                </small></p>
+
+                {% if material.esta_bajo_stock %}
+                <div class="alert alert-warning p-2 mt-3">
+                    <small>
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Stock bajo mínimo</strong>
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

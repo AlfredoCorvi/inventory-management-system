@@ -1,0 +1,133 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Registrar Salida - Control de Materiales{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-arrow-up-circle"></i> Registrar Salida de Material
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post" id="salidaForm">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.material.id_for_label }}" class="form-label">
+                            Material <span class="text-danger">*</span>
+                        </label>
+                        {{ form.material }}
+                        {% if form.material.errors %}
+                            <div class="text-danger">{{ form.material.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            Solo se muestran materiales con stock disponible
+                        </small>
+                    </div>
+
+                    <!-- Información del material seleccionado -->
+                    <div id="materialInfo" class="alert alert-secondary d-none mb-3">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Stock actual:</strong> <span id="stockActual">-</span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Unidad:</strong> <span id="unidadMedida">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.cantidad.id_for_label }}" class="form-label">
+                            Cantidad <span class="text-danger">*</span>
+                        </label>
+                        {{ form.cantidad }}
+                        {% if form.cantidad.errors %}
+                            <div class="text-danger">{{ form.cantidad.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            Ingrese la cantidad a retirar del inventario
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.referencia.id_for_label }}" class="form-label">
+                            Referencia <span class="text-danger">*</span>
+                        </label>
+                        {{ form.referencia }}
+                        {% if form.referencia.errors %}
+                            <div class="text-danger">{{ form.referencia.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            Número de requisición, área solicitante o proyecto
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.observaciones.id_for_label }}" class="form-label">
+                            Observaciones
+                        </label>
+                        {{ form.observaciones }}
+                        {% if form.observaciones.errors %}
+                            <div class="text-danger">{{ form.observaciones.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            Información adicional sobre esta salida (opcional)
+                        </small>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>Importante:</strong> El sistema validará que haya stock suficiente 
+                        antes de registrar la salida. Si el stock queda por debajo del mínimo, 
+                        se generará una alerta.
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Registrar Salida
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Card informativa -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="bi bi-shield-check"></i> Validaciones del Sistema
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li><strong>Stock insuficiente:</strong> No se permite registrar salidas mayores al stock disponible</li>
+                    <li><strong>Alerta automática:</strong> Si el stock queda bajo el mínimo, recibirás una notificación</li>
+                    <li><strong>Trazabilidad:</strong> Cada salida queda registrada con usuario, fecha y referencia</li>
+                    <li><strong>Auditoría:</strong> Los movimientos son permanentes y rastreables</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Script para mostrar info del material seleccionado
+    document.getElementById('id_material').addEventListener('change', function() {
+        const materialId = this.value;
+        if (materialId) {
+            // Aquí podrías hacer una llamada AJAX para obtener info del material
+            // Por ahora solo mostramos el div
+            document.getElementById('materialInfo').classList.remove('d-none');
+        } else {
+            document.getElementById('materialInfo').classList.add('d-none');
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends 'inventario/base.html' %}
+
+{% block title %}Registrar Entrada - Control de Materiales{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-arrow-down-circle"></i> Registrar Entrada de Material
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.material.id_for_label }}" class="form-label">
+                            Material <span class="text-danger">*</span>
+                        </label>
+                        {{ form.material }}
+                        {% if form.material.errors %}
+                            <div class="text-danger">{{ form.material.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            Seleccione el material que está ingresando al inventario
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.cantidad.id_for_label }}" class="form-label">
+                            Cantidad <span class="text-danger">*</span>
+                        </label>
+                        {{ form.cantidad }}
+                        {% if form.cantidad.errors %}
+                            <div class="text-danger">{{ form.cantidad.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            Ingrese la cantidad recibida
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.referencia.id_for_label }}" class="form-label">
+                            Referencia <span class="text-danger">*</span>
+                        </label>
+                        {{ form.referencia }}
+                        {% if form.referencia.errors %}
+                            <div class="text-danger">{{ form.referencia.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            Número de orden de compra, factura o remisión
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.observaciones.id_for_label }}" class="form-label">
+                            Observaciones
+                        </label>
+                        {{ form.observaciones }}
+                        {% if form.observaciones.errors %}
+                            <div class="text-danger">{{ form.observaciones.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">
+                            Información adicional sobre esta entrada (opcional)
+                        </small>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Nota:</strong> Al registrar esta entrada, el stock del material 
+                        se actualizará automáticamente y se generará un registro en el historial.
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check-circle"></i> Registrar Entrada
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Card informativa -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <i class="bi bi-lightbulb"></i> Consejos
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>Verifique que el material seleccionado sea el correcto antes de registrar</li>
+                    <li>La cantidad debe ser mayor a cero</li>
+                    <li>Use referencias claras para facilitar auditorías futuras</li>
+                    <li>Las entradas no se pueden eliminar, solo consultar en el historial</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
