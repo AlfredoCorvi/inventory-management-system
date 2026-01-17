@@ -8,4 +8,8 @@ urlpatterns = [
     path('entrada/', views.registrar_entrada, name='registrar_entrada'),
     path('salida/', views.registrar_salida, name='registrar_salida'),
     path('historial/', views.historial_movimientos, name='historial_movimientos'),
+    
+    # PDFs
+    path('pdf/remision/<int:movimiento_id>/', views.generar_remision_pdf, name='generar_remision_pdf'),
+    path('pdf/reporte-inventario/', views.generar_reporte_inventario_pdf, name='generar_reporte_inventario_pdf'),
 ]

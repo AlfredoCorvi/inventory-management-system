@@ -78,6 +78,7 @@
                         <th>Usuario</th>
                         <th>Referencia</th>
                         <th>Observaciones</th>
+                        <th>PDF</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -120,10 +121,17 @@
                                 <small class="text-muted">-</small>
                             {% endif %}
                         </td>
+                        <td>
+                            <a href="{% url 'generar_remision_pdf' mov.id %}" 
+                               class="btn btn-sm btn-outline-danger" 
+                               target="_blank">
+                                <i class="bi bi-file-pdf"></i> PDF
+                            </a>
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted">
+                        <td colspan="11" class="text-center text-muted">
                             No se encontraron movimientos con los filtros seleccionados
                         </td>
                     </tr>

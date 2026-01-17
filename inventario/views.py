@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -6,6 +7,14 @@ from django.db.models import Sum, Q, F
 from decimal import Decimal
 from .models import Material, Movimiento, Proveedor
 from .forms import EntradaMaterialForm, SalidaMaterialForm
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from io import BytesIO
+from datetime import datetime
 
 @login_required
 def dashboard(request):
@@ -78,34 +87,9 @@ def lista_materiales(request):
     
     return render(request, 'inventario/lista_materiales.html', context)
 
-
-# ============================================
-# AQUÍ VIENE LO IMPORTANTE: @transaction.atomic
-# ============================================
-
 @login_required
-@transaction.atomic  # ← ESTO ES CLAVE
+@transaction.atomic
 def registrar_entrada(request):
-    """
-    Registra una entrada de material.
-    
-    ¿Qué hace @transaction.atomic?
-    -----------------------------
-    Garantiza que TODAS las operaciones de base de datos dentro de esta función
-    se ejecuten como una UNIDAD ATÓMICA:
-    
-    - Si TODO sale bien → se guarda todo (COMMIT)
-    - Si ALGO falla → se deshace todo (ROLLBACK)
-    
-    En este caso:
-    1. Actualizamos el stock del material
-    2. Creamos el registro de movimiento
-    
-    Si falla el paso 2, el paso 1 también se deshace automáticamente.
-    Esto evita inconsistencias como "el stock se actualizó pero no hay registro
-    del movimiento" o viceversa.
-    """
-    
     if request.method == 'POST':
         form = EntradaMaterialForm(request.POST)
         
@@ -147,7 +131,7 @@ def registrar_entrada(request):
 
 
 @login_required
-@transaction.atomic  # ← Igual aquí
+@transaction.atomic
 def registrar_salida(request):
     """
     Registra una salida de material.
@@ -214,8 +198,7 @@ def registrar_salida(request):
 
 @login_required
 def historial_movimientos(request):
-    """Historial completo de movimientos con filtros"""
-    
+
     movimientos = Movimiento.objects.select_related('material', 'usuario')
     
     # Filtro por tipo
@@ -277,3 +260,357 @@ def detalle_material(request, material_id):
     }
     
     return render(request, 'inventario/detalle_material.html', context)
+
+@login_required
+def generar_remision_pdf(request, movimiento_id):
+    """
+    Genera un PDF de remisión/documento para un movimiento específico.
+    
+    Este tipo de documento es común en operaciones de planta para:
+    - Entradas: Comprobar recepción de material del proveedor
+    - Salidas: Autorizar la entrega de material a un área/proyecto
+    """
+    
+    movimiento = get_object_or_404(Movimiento, id=movimiento_id)
+    
+    # Crear el PDF en memoria
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    
+    # Contenedor de elementos
+    elements = []
+    
+    # Estilos
+    styles = getSampleStyleSheet()
+    
+    # Estilo personalizado para el título
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#2c3e50'),
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Estilo para subtítulos
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=12,
+        textColor=colors.HexColor('#7f8c8d'),
+        alignment=TA_CENTER,
+        spaceAfter=20
+    )
+    
+    # ========== ENCABEZADO ==========
+    if movimiento.tipo == 'ENTRADA':
+        titulo = Paragraph("REMISIÓN DE ENTRADA", title_style)
+        subtitulo = Paragraph("Comprobante de Recepción de Material", subtitle_style)
+    else:
+        titulo = Paragraph("REMISIÓN DE SALIDA", title_style)
+        subtitulo = Paragraph("Autorización de Entrega de Material", subtitle_style)
+    
+    elements.append(titulo)
+    elements.append(subtitulo)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # ========== INFORMACIÓN DEL DOCUMENTO ==========
+    info_data = [
+        ['Folio:', f'#{movimiento.id:06d}'],
+        ['Fecha:', movimiento.fecha.strftime('%d/%m/%Y %H:%M')],
+        ['Tipo de Movimiento:', movimiento.get_tipo_display()],
+        ['Referencia:', movimiento.referencia],
+        ['Registrado por:', movimiento.usuario.get_full_name() or movimiento.usuario.username],
+    ]
+    
+    info_table = Table(info_data, colWidths=[2*inch, 4*inch])
+    info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#ecf0f1')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#bdc3c7')),
+    ]))
+    
+    elements.append(info_table)
+    elements.append(Spacer(1, 0.5*inch))
+    
+    # ========== INFORMACIÓN DEL MATERIAL ==========
+    material_title = Paragraph("<b>DETALLE DEL MATERIAL</b>", styles['Heading2'])
+    elements.append(material_title)
+    elements.append(Spacer(1, 0.2*inch))
+    
+    material_data = [
+        ['Campo', 'Información'],
+        ['Código', movimiento.material.codigo],
+        ['Nombre', movimiento.material.nombre],
+        ['Descripción', movimiento.material.descripcion],
+        ['Unidad de Medida', movimiento.material.get_unidad_medida_display()],
+        ['Proveedor', movimiento.material.proveedor.nombre],
+    ]
+    
+    material_table = Table(material_data, colWidths=[2*inch, 4.5*inch])
+    material_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#bdc3c7')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#ecf0f1')]),
+    ]))
+    
+    elements.append(material_table)
+    elements.append(Spacer(1, 0.5*inch))
+    
+    # ========== MOVIMIENTO ==========
+    movimiento_title = Paragraph("<b>INFORMACIÓN DEL MOVIMIENTO</b>", styles['Heading2'])
+    elements.append(movimiento_title)
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Usar color diferente según tipo
+    if movimiento.tipo == 'ENTRADA':
+        header_color = colors.HexColor('#27ae60')
+    else:
+        header_color = colors.HexColor('#3498db')
+    
+    movimiento_data = [
+        ['Concepto', 'Valor'],
+        ['Cantidad', f"{movimiento.cantidad} {movimiento.material.unidad_medida}"],
+        ['Precio Unitario', f"${movimiento.material.precio_unitario:,.2f}"],
+        ['Valor Total', f"${movimiento.valor_total:,.2f}"],
+        ['Stock Resultante', f"{movimiento.stock_resultante} {movimiento.material.unidad_medida}"],
+    ]
+    
+    movimiento_table = Table(movimiento_data, colWidths=[3*inch, 3.5*inch])
+    movimiento_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), header_color),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 1), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('FONTSIZE', (0, 1), (-1, -1), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#bdc3c7')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#ecf0f1')]),
+    ]))
+    
+    elements.append(movimiento_table)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # ========== OBSERVACIONES ==========
+    if movimiento.observaciones:
+        obs_title = Paragraph("<b>OBSERVACIONES</b>", styles['Heading3'])
+        elements.append(obs_title)
+        elements.append(Spacer(1, 0.1*inch))
+        
+        obs_text = Paragraph(movimiento.observaciones, styles['Normal'])
+        elements.append(obs_text)
+        elements.append(Spacer(1, 0.5*inch))
+    else:
+        elements.append(Spacer(1, 0.5*inch))
+    
+    # ========== FIRMAS ==========
+    elements.append(Spacer(1, 0.7*inch))
+    
+    firma_data = [
+        ['_________________________', '_________________________'],
+        ['Entregó', 'Recibió'],
+        ['', ''],
+        ['Nombre:', 'Nombre:'],
+        ['Firma:', 'Firma:'],
+    ]
+    
+    firma_table = Table(firma_data, colWidths=[3*inch, 3*inch])
+    firma_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 0),
+        ('BOTTOMPADDING', (0, 1), (-1, 1), 20),
+    ]))
+    
+    elements.append(firma_table)
+    
+    # ========== FOOTER ==========
+    elements.append(Spacer(1, 0.5*inch))
+    
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.HexColor('#7f8c8d'),
+        alignment=TA_CENTER
+    )
+    
+    footer_text = f"""
+    <i>Documento generado automáticamente por el Sistema de Control de Materiales<br/>
+    Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</i>
+    """
+    footer = Paragraph(footer_text, footer_style)
+    elements.append(footer)
+    
+    # Construir el PDF
+    doc.build(elements)
+    
+    # Obtener el valor del buffer
+    pdf = buffer.getvalue()
+    buffer.close()
+    
+    # Crear la respuesta HTTP
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="remision_{movimiento.tipo}_{movimiento.id}.pdf"'
+    response.write(pdf)
+    
+    return response
+
+
+@login_required
+def generar_reporte_inventario_pdf(request):
+    """
+    Genera un reporte completo del inventario actual en PDF.
+    """
+    
+    materiales = Material.objects.filter(activo=True).select_related('proveedor')
+    
+    # Crear el PDF en memoria
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch)
+    
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # ========== TÍTULO ==========
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        textColor=colors.HexColor('#2c3e50'),
+        spaceAfter=10,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    titulo = Paragraph("REPORTE DE INVENTARIO", title_style)
+    fecha = Paragraph(f"Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}", 
+                      ParagraphStyle('Subtitle', parent=styles['Normal'], 
+                                   alignment=TA_CENTER, fontSize=10))
+    
+    elements.append(titulo)
+    elements.append(fecha)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # ========== RESUMEN ==========
+    total_materiales = materiales.count()
+    materiales_bajo_stock = materiales.filter(stock_actual__lte=F('stock_minimo')).count()
+    valor_total = materiales.aggregate(
+        total=Sum(F('stock_actual') * F('precio_unitario'))
+    )['total'] or 0
+    
+    resumen_data = [
+        ['RESUMEN GENERAL'],
+        ['Total de Materiales', str(total_materiales)],
+        ['Materiales con Stock Bajo', str(materiales_bajo_stock)],
+        ['Valor Total del Inventario', f"${valor_total:,.2f}"],
+    ]
+    
+    resumen_table = Table(resumen_data, colWidths=[4*inch, 2.5*inch])
+    resumen_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 14),
+        ('SPAN', (0, 0), (-1, 0)),
+        ('BACKGROUND', (0, 1), (0, -1), colors.HexColor('#ecf0f1')),
+        ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#bdc3c7')),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    
+    elements.append(resumen_table)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # ========== TABLA DE MATERIALES ==========
+    detalle_title = Paragraph("<b>DETALLE DE MATERIALES</b>", styles['Heading2'])
+    elements.append(detalle_title)
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Encabezados
+    data = [['Código', 'Material', 'Stock', 'Unidad', 'P. Unit.', 'Valor', 'Estado']]
+    
+    # Datos
+    for material in materiales:
+        estado = '⚠ BAJO' if material.esta_bajo_stock else '✓ OK'
+        data.append([
+            material.codigo,
+            Paragraph(material.nombre[:30], styles['Normal']),
+            f"{material.stock_actual}",
+            material.unidad_medida,
+            f"${material.precio_unitario:,.2f}",
+            f"${material.valor_inventario:,.2f}",
+            estado
+        ])
+    
+    tabla_materiales = Table(data, colWidths=[0.8*inch, 2*inch, 0.7*inch, 
+                                               0.7*inch, 0.9*inch, 1*inch, 0.7*inch])
+    tabla_materiales.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('ALIGN', (2, 1), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#bdc3c7')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    
+    elements.append(tabla_materiales)
+    
+    # Footer
+    elements.append(Spacer(1, 0.3*inch))
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.HexColor('#7f8c8d'),
+        alignment=TA_CENTER
+    )
+    footer = Paragraph(
+        f"<i>Reporte generado automáticamente - {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</i>",
+        footer_style
+    )
+    elements.append(footer)
+    
+    # Construir PDF
+    doc.build(elements)
+    
+    pdf = buffer.getvalue()
+    buffer.close()
+    
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="reporte_inventario_{datetime.now().strftime("%Y%m%d")}.pdf"'
+    response.write(pdf)
+    
+    return response
