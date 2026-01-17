@@ -12,4 +12,6 @@ urlpatterns = [
     # PDFs
     path('pdf/remision/<int:movimiento_id>/', views.generar_remision_pdf, name='generar_remision_pdf'),
     path('pdf/reporte-inventario/', views.generar_reporte_inventario_pdf, name='generar_reporte_inventario_pdf'),
+    # AJAX
+    path('api/material/<int:material_id>/', views.obtener_info_material, name='obtener_info_material'),
 ]

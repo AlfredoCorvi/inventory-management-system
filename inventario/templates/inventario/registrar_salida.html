@@ -118,15 +118,41 @@
 
 {% block extra_js %}
 <script>
-    // Script para mostrar info del material seleccionado
     document.getElementById('id_material').addEventListener('change', function() {
         const materialId = this.value;
+        const infoDiv = document.getElementById('materialInfo');
+        
         if (materialId) {
-            // Aquí podrías hacer una llamada AJAX para obtener info del material
-            // Por ahora solo mostramos el div
-            document.getElementById('materialInfo').classList.remove('d-none');
+            // Hacer petición AJAX
+            fetch(`/inventario/api/material/${materialId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Actualizar la información
+                        document.getElementById('stockActual').textContent = 
+                            `${data.stock_actual} ${data.unidad_medida}`;
+                        document.getElementById('unidadMedida').textContent = 
+                            data.unidad_medida;
+                        
+                        // Mostrar el div
+                        infoDiv.classList.remove('d-none');
+                        
+                        // Cambiar color si está bajo stock
+                        if (data.esta_bajo_stock) {
+                            infoDiv.classList.remove('alert-secondary');
+                            infoDiv.classList.add('alert-warning');
+                        } else {
+                            infoDiv.classList.remove('alert-warning');
+                            infoDiv.classList.add('alert-secondary');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    infoDiv.classList.add('d-none');
+                });
         } else {
-            document.getElementById('materialInfo').classList.add('d-none');
+            infoDiv.classList.add('d-none');
         }
     });
 </script>

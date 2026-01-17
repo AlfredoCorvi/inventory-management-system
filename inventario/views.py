@@ -1,4 +1,4 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -614,3 +614,24 @@ def generar_reporte_inventario_pdf(request):
     response.write(pdf)
     
     return response
+
+@login_required
+def obtener_info_material(request, material_id):
+    """
+    Devuelve información del material en formato JSON para uso en AJAX
+    """
+    try:
+        material = Material.objects.get(id=material_id, activo=True)
+        data = {
+            'success': True,
+            'codigo': material.codigo,
+            'nombre': material.nombre,
+            'stock_actual': str(material.stock_actual),
+            'stock_minimo': str(material.stock_minimo),
+            'unidad_medida': material.get_unidad_medida_display(),
+            'precio_unitario': str(material.precio_unitario),
+            'esta_bajo_stock': material.esta_bajo_stock,
+        }
+        return JsonResponse(data)
+    except Material.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Material no encontrado'})
