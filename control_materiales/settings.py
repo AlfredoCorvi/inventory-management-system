@@ -75,8 +75,12 @@ WSGI_APPLICATION = 'control_materiales.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'control_materiales_db',
+        'USER': 'materiales_user',
+        'PASSWORD': 'arangepa3',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
@@ -116,3 +120,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Login/Logout URLs
+LOGIN_URL = '/admin/login/'  # Usa el login del admin de Django
+LOGIN_REDIRECT_URL = '/inventario/'  # Después de login, va al dashboard
+LOGOUT_REDIRECT_URL = '/admin/login/'
