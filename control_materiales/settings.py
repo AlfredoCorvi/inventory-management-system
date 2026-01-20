@@ -122,6 +122,6 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # Login/Logout URLs
-LOGIN_URL = '/admin/login/'  # Usa el login del admin de Django
-LOGIN_REDIRECT_URL = '/inventario/'  # Después de login, va al dashboard
-LOGOUT_REDIRECT_URL = '/admin/login/'
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/inventario/'
+LOGOUT_REDIRECT_URL = '/accounts/login/'
